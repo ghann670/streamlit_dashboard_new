@@ -251,36 +251,52 @@ org_data_list = []
 for org in df_active_org['organization'].unique():
     org_df = df_active_org[df_active_org['organization'] == org]
     
-    # trial_start_date 처리
-    org_start = org_df['trial_start_date'].iloc[0]
-    
-    # 타입 체크 및 변환
     try:
-        if not isinstance(org_start, pd.Timestamp):
-            org_start = pd.to_datetime(org_start)
-        if pd.isna(org_start):
+        # trial_start_date 처리
+        org_start = org_df['trial_start_date'].iloc[0]
+        
+        # end_date 처리 (현재 시간으로부터)
+        end_date = pd.Timestamp.now()
+        
+        # org_start가 유효한지 확인하고 처리
+        if pd.isna(org_start) or not isinstance(org_start, pd.Timestamp):
+            # created_at에서 최소값 찾기
             if not org_df['created_at'].empty:
                 org_start = pd.to_datetime(org_df['created_at'].min())
             else:
+                # 데이터가 없는 경우 스킵
                 continue
         
-        # 해당 조직의 날짜 범위 생성
-        org_dates = pd.date_range(start=org_start.date(), end=end_date.date(), freq='D')
-    except (ValueError, AttributeError) as e:
-        print(f"Error processing org {org}: {str(e)}")
-        if not org_df['created_at'].empty:
-            org_start = pd.to_datetime(org_df['created_at'].min())
-            org_dates = pd.date_range(start=org_start.date(), end=end_date.date(), freq='D')
-        else:
+        # 날짜가 유효한지 최종 확인
+        if pd.isna(org_start) or pd.isna(end_date):
+            print(f"Invalid dates for org {org}: start={org_start}, end={end_date}")
             continue
-    
-    # 해당 조직의 실제 데이터 집계
-    org_counts = org_df.groupby(org_df["created_at"].dt.date).size().reset_index(name="count")
-    org_counts["created_at"] = pd.to_datetime(org_counts["created_at"])
-    
-    # 데이터 병합
-    org_daily = pd.merge(org_date_df, org_counts, on='created_at', how='left')
-    org_data_list.append(org_daily)
+            
+        # 시작일이 종료일보다 늦은 경우 처리
+        if org_start > end_date:
+            org_start = end_date
+        
+        # 해당 조직의 날짜 범위 생성
+        org_dates = pd.date_range(
+            start=org_start.normalize(),  # 시간 정보 제거
+            end=end_date.normalize(),     # 시간 정보 제거
+            freq='D'
+        )
+        
+        # 데이터프레임 생성 및 처리
+        org_date_df = pd.DataFrame({'created_at': org_dates})
+        
+        # 해당 조직의 실제 데이터 집계
+        org_counts = org_df.groupby(org_df["created_at"].dt.date).size().reset_index(name="count")
+        org_counts["created_at"] = pd.to_datetime(org_counts["created_at"])
+        
+        # 데이터 병합
+        org_daily = pd.merge(org_date_df, org_counts, on='created_at', how='left')
+        org_data_list.append(org_daily)
+        
+    except Exception as e:
+        print(f"Error processing org {org}: {str(e)}")
+        continue
 
 # 모든 조직의 데이터 합치기
 df_total_daily = pd.concat(org_data_list)
