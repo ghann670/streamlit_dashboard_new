@@ -1,0 +1,7 @@
+*.xlsx
+*.csv
+*.pptx
+*.ipynb
+~$*
+.DS_Store
+venv_clsa/ 
