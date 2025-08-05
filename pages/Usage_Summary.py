@@ -264,24 +264,38 @@ for org in df_active_org['organization'].unique():
             if not org_df['created_at'].empty:
                 org_start = pd.to_datetime(org_df['created_at'].min())
             else:
-                # 데이터가 없는 경우 스킵
                 continue
         
+        # 명시적으로 Timestamp로 변환
+        try:
+            org_start = pd.to_datetime(org_start)
+            end_date = pd.to_datetime(end_date)
+        except Exception as e:
+            print(f"Date conversion error - org: {org}, error: {str(e)}")
+            continue
+            
         # 날짜가 유효한지 최종 확인
         if pd.isna(org_start) or pd.isna(end_date):
-            print(f"Invalid dates for org {org}: start={org_start}, end={end_date}")
             continue
             
         # 시작일이 종료일보다 늦은 경우 처리
         if org_start > end_date:
             org_start = end_date
         
+        # normalize()로 시간 정보 제거
+        org_start = org_start.normalize()
+        end_date = end_date.normalize()
+        
         # 해당 조직의 날짜 범위 생성
-        org_dates = pd.date_range(
-            start=org_start.normalize(),  # 시간 정보 제거
-            end=end_date.normalize(),     # 시간 정보 제거
-            freq='D'
-        )
+        try:
+            org_dates = pd.date_range(
+                start=org_start,
+                end=end_date,
+                freq='D'
+            )
+        except Exception as e:
+            print(f"Date range error - org: {org}, start: {org_start}, end: {end_date}, error: {str(e)}")
+            continue
         
         # 데이터프레임 생성 및 처리
         org_date_df = pd.DataFrame({'created_at': org_dates})
@@ -295,7 +309,7 @@ for org in df_active_org['organization'].unique():
         org_data_list.append(org_daily)
         
     except Exception as e:
-        print(f"Error processing org {org}: {str(e)}")
+        print(f"Processing error - org: {org}, error: {str(e)}")
         continue
 
 # 모든 조직의 데이터 합치기
