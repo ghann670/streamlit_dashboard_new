@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import altair as alt
-import matplotlib.pyplot as plt
 from urllib.parse import parse_qs
 
 # Page config
-st.set_page_config(page_title="Usage Summary", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Usage Summary", page_icon="��", layout="wide")
 
 # Load dataset
 df_all = pd.read_csv("df_all.csv")
