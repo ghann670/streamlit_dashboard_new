@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import altair as alt
+import matplotlib.pyplot as plt
 from urllib.parse import parse_qs
 
 # Page config
@@ -883,16 +884,16 @@ with col3:
     p95_time = df_time['time_to_first_byte'].quantile(0.95)
     st.metric("95th Percentile", f"{p95_time:.1f} sec")
 
+# Matplotlib을 사용한 시계열 시각화
+plt.style.use('seaborn')
+fig_mpl, ax = plt.subplots(figsize=(12, 6))
 
 # 시계열 데이터 준비
 df_time['date'] = df_time['created_at'].dt.date
-
-# 날짜별 통계 계산 (중앙값과 이벤트 수)
 daily_stats = df_time.groupby('date').agg({
     'time_to_first_byte': 'median',
-    'id': 'count'  # 각 날짜의 total events
+    'id': 'count'
 }).reset_index()
-daily_stats.columns = ['date', 'time_to_first_byte', 'total_events']
 
 # 2025년 4월 1일 이후, 오늘 제외 데이터만 필터링
 start_date = pd.Timestamp('2025-04-01').date()
@@ -902,33 +903,22 @@ daily_stats = daily_stats[
     (daily_stats['date'] <= end_date)
 ]
 
-# 라인 차트
-fig1 = px.line(
-    daily_stats, 
-    x='date', 
-    y='time_to_first_byte',
-    title='Daily Median Response Time (excluding today)',
-    labels={'time_to_first_byte': 'Response Time (seconds)', 'date': 'Date', 'total_events': 'Total Events'}
-)
+# 시계열 플롯
+ax.plot(daily_stats['date'], daily_stats['time_to_first_byte'], 
+        marker='o', linestyle='-', linewidth=2, markersize=6)
 
-# hover 템플릿 수정
-fig1.update_traces(
-    hovertemplate="<br>".join([
-        "Date: %{x}",
-        "Response Time: %{y:.1f} sec",
-        "Total Events: %{customdata[0]}",
-        "<extra></extra>"
-    ]),
-    customdata=daily_stats[['total_events']]
-)
+# 축 레이블과 제목
+ax.set_xlabel('Date')
+ax.set_ylabel('Response Time (seconds)')
+ax.set_title('Daily Median Response Time (Matplotlib)')
 
-fig1.update_layout(
-    height=400,
-    hovermode='x unified'
-)
+# x축 날짜 포맷 조정
+plt.xticks(rotation=45)
+plt.tight_layout()
 
-# 차트 표시
-st.plotly_chart(fig1, use_container_width=True)
+# Streamlit에 Matplotlib 차트 표시
+st.pyplot(fig_mpl)
+
 
 # 날짜 선택기 추가
 available_dates = sorted(daily_stats['date'].unique(), reverse=True)  # 내림차순 정렬
